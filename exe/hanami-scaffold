@@ -1,0 +1,6 @@
+#!/usr/bin/env ruby
+
+require "bundler/setup"
+require 'hanami-scaffold'
+
+Hanami::CLI.new(Hanami::Scaffold).call

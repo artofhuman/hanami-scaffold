@@ -1,57 +1,41 @@
-require 'hanami'
-require 'hanami/scaffold/version'
-require 'hanami/cli_base'
-require 'hanami/cli_sub_commands/generate'
-require 'hanami/commands/generate/action'
+require 'hanami/cli'
 
 module Hanami
   module Scaffold
-  end
-end
+    extend Hanami::CLI::Registry
 
-Hanami::CliSubCommands::Generate.define_commands do
-  ACTIONS = {
-    'index'  => 'GET',
-    'new'    => 'GET',
-    'create' => 'POST',
-    'edit'   => 'GET',
-    'update' => 'PUT',
-    'delete' => 'DELETE'
-  }.freeze
+    class Generate < Hanami::CLI::Command
+      ACTIONS = %w(index new create edit show update destroy).freeze
 
-  desc 'scaffold APPLICATION_NAME CONTROLLER_NAME', 'Generate CRUD routes'
-  option :only, type: :array
-  option :except, type: :array
-  long_desc <<-EOS
-    `hanami generate scaffold` generates an an actions, views and templates along with specs and a routes.
+      desc "Generates an actions, views and templates along with specs and a routes."
 
-    For Application architecture the application name is 'app'. For Container architecture the default application is called 'web'.
+      argument :app, required: true, desc: "The application name (eg. `web`)", default: 'web'
+      argument :controller, required: true, desc: "The controller name (eg. `home`)"
 
-    > $ hanami generate scaffold cars
+      option :only, type: :array
+      option :except, type: :array
 
-    > $ hanami generate scaffold web cars
+      example [
+        "hanami-scaffold generate web cars",
+        "hanami-scaffold generate web cars --only index new create show",
+        "hanami-scaffold generate web cars --except update"
+      ]
 
-    > $ hanami generate scaffold web cars --only index new create show
-  EOS
-  def scaffold(application_name = :app, controller_name)
-    if options[:help]
-      invoke :help, ['scaffold']
-    else
-      actions =
-        if options[:except] && options[:except].any?
-          ACTIONS.dup.delete_if { |key, _| options[:except].include?(key) }
-        elsif options[:only] && options[:only].any?
-          ACTIONS.dup.delete_if { |key, _| !options[:only].include?(key) }
-        else
-          ACTIONS
+      def call(app:, controller:, **options)
+        actions = if options[:except] && (except = options[:except].split(',')).any?
+                    ACTIONS.select { |action| !except.include?(action) }
+                  elsif options[:only] && (only = options[:only].split(',')).any?
+                    ACTIONS.select { |action| only.include?(action) }
+                  else
+                    ACTIONS
+                  end
+
+        actions.each do |action, method|
+          `bundle exec hanami generate action #{app} #{controller}##{action}`
         end
-
-      actions.each do |action, method|
-        say_status "Generate", "#{method} #{controller_name}##{action}"
-        Hanami::CliSubCommands::Generate.new.invoke :actions,
-          [application_name, "#{controller_name}##{action}"], method: method
-        puts
       end
     end
+
+    register 'generate', Generate
   end
 end
